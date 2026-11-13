@@ -1,0 +1,4 @@
+﻿Ma_Chinh_Sach,Ten_Chinh_Sach,Gia_Tri_Don_Toi_Thieu,Gia_Tri_Don_Toi_Da,Chiet_Khau_Toi_Da_NVKD,Chiet_Khau_Toi_Da_TP,Cap_Duyet,Ghi_Chu
+POL-01,Đơn hàng Tiêu chuẩn (< 300 triệu),0,299999999,4.0,10.0,Trưởng phòng Kinh doanh,NVKD tự duyệt tối đa 4%. Từ >4% đến 10% trình Trưởng phòng KD; >10% trình Ban Giám đốc.
+POL-02,Đơn hàng Doanh nghiệp (300 triệu – 1 tỷ),300000000,1000000000,5.0,12.0,Trưởng phòng Kinh doanh,NVKD tự duyệt tối đa 5%. Từ >5% đến 12% trình Trưởng phòng KD; >12% trình Ban Giám đốc.
+POL-03,Đơn hàng Dự án lớn (> 1 tỷ),1000000001,,5.0,12.0,Trưởng phòng Kinh doanh & Ban Giám đốc,Mọi đơn hàng > 1 tỷ bắt buộc qua thẩm định Trưởng phòng Kinh doanh trước khi phát hành.

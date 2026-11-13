@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minh An AI Agent — Xử lý Cơ hội Bán hàng B2B</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">MA</div>
+        <div>
+          <h1>AI Agent Xử lý Cơ hội Bán hàng B2B</h1>
+          <p class="brand-sub">Công ty Công nghệ Minh An • <span id="source-badge">Đang tải dữ liệu...</span></p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-load-demo" class="btn btn-secondary" type="button">Nạp dữ liệu mẫu (12 yêu cầu)</button>
+        <a href="/api/export/results.xlsx" class="btn btn-secondary" download>Xuất báo cáo (.xlsx)</a>
+        <a href="/api/export/results.csv" class="btn btn-secondary" download>Xuất (.csv)</a>
+        <button id="btn-open-llm" class="btn btn-outline" type="button">Cấu hình LLM (Tuỳ chọn)</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Toast notification -->
+    <div id="toast-area" class="toast-area" aria-live="polite"></div>
+
+    <!-- SECTION 1: INPUT CENTER -->
+    <section class="card input-center">
+      <div class="section-header">
+        <div>
+          <h2>1. Nguồn dữ liệu đầu vào (Google Sheets, CSV, XLSX hoặc Nhập trực tiếp)</h2>
+          <p class="section-desc">
+            Tải lên bảng yêu cầu khách hàng, danh mục sản phẩm &amp; giá, tồn khả dụng, thời gian triển khai và chính sách chiết khấu.
+          </p>
+        </div>
+        <div class="template-links">
+          <span>Tải file mẫu chuẩn:</span>
+          <a href="/api/templates/workbook.xlsx" download>Bộ mẫu tổng hợp (.xlsx)</a>
+          <a href="/api/templates/requests.csv" download>Yêu cầu KH (.csv)</a>
+          <a href="/api/templates/catalog.csv" download>Sản phẩm &amp; Tồn (.csv)</a>
+          <a href="/api/templates/policy.csv" download>Chính sách (.csv)</a>
+        </div>
+      </div>
+
+      <div class="tabs-bar" role="tablist">
+        <button class="tab-btn active" data-tab="tab-files" type="button">Tải lên File CSV / XLSX</button>
+        <button class="tab-btn" data-tab="tab-gsheets" type="button">Link Google Sheets</button>
+        <button class="tab-btn" data-tab="tab-quick" type="button">Nhập nhanh 1 Yêu cầu mới</button>
+        <button class="tab-btn" data-tab="tab-kb" type="button">Cơ sở Tri thức nền (Giá, Tồn kho, Chính sách)</button>
+      </div>
+
+      <!-- TAB 1: CSV / XLSX UPLOAD -->
+      <div id="tab-files" class="tab-panel active">
+        <div class="upload-grid">
+          <div id="drop-zone" class="drop-zone" tabindex="0">
+            <div class="drop-icon">📄</div>
+            <p class="drop-title">Kéo thả file <strong>.xlsx</strong> hoặc <strong>.csv</strong> vào đây</p>
+            <p class="drop-sub">Hỗ trợ workbook nhiều sheet (tự động nhận diện Yêu cầu, Sản phẩm, Tồn kho, Chính sách) hoặc chọn nhiều file CSV riêng lẻ.</p>
+            <label class="btn btn-primary upload-picker-btn">
+              Chọn file từ máy
+              <input id="file-input" type="file" accept=".csv,.xlsx" multiple hidden />
+            </label>
+          </div>
+          <div class="upload-queue-box">
+            <div class="queue-header">
+              <strong>Danh sách file đã chọn (<span id="selected-files-count">0</span>)</strong>
+              <label class="checkbox-inline">
+                <input id="files-replace-mode" type="checkbox" checked />
+                Thay thế danh sách yêu cầu hiện tại
+              </label>
+            </div>
+            <div id="selected-files-list" class="selected-files-list">
+              <p class="muted-empty">Chưa chọn file nào. Bạn có thể tải <code>MinhAn_DuLieu_Mau_TongHop.xlsx</code> ở góc phải để thử nghiệm ngay.</p>
+            </div>
+            <div class="queue-actions">
+              <button id="btn-clear-files" class="btn btn-secondary btn-sm" type="button">Xoá danh sách</button>
+              <button id="btn-run-files" class="btn btn-primary" type="button" disabled>Phân tích &amp; Chạy quy trình AI</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: GOOGLE SHEETS -->
+      <div id="tab-gsheets" class="tab-panel">
+        <div class="gsheet-box">
+          <div class="gsheet-note">
+            <strong>Hướng dẫn kết nối Google Sheets:</strong>
+            Mở Google Sheets → chọn <em>Chia sẻ (Share)</em> → chuyển quyền thành
+            <strong>"Bất kỳ ai có đường liên kết đều có thể xem"</strong> → dán link vào ô dưới đây.
+            Nếu file Google Sheets có nhiều tab (Yêu cầu, Sản phẩm, Tồn kho, Chính sách), chỉ cần dán 1 link duy nhất!
+          </div>
+          <div id="gsheet-links-container" class="gsheet-links-container">
+            <div class="gsheet-row">
+              <input
+                type="url"
+                class="input gsheet-url-input"
+                placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=0"
+              />
+              <select class="input gsheet-role-select">
+                <option value="auto">Tự động nhận diện các sheet</option>
+                <option value="requests">Sheet Yêu cầu khách hàng</option>
+                <option value="catalog">Sheet Danh mục Sản phẩm &amp; Giá &amp; Tồn kho</option>
+                <option value="inventory">Sheet Tồn kho &amp; Thời gian triển khai</option>
+                <option value="policy">Sheet Chính sách chiết khấu</option>
+                <option value="sales_team">Sheet Nhân viên Kinh doanh</option>
+              </select>
+            </div>
+          </div>
+          <div class="gsheet-actions">
+            <button id="btn-add-gsheet-row" class="btn btn-secondary btn-sm" type="button">+ Thêm link Google Sheet khác</button>
+            <label class="checkbox-inline">
+              <input id="gsheet-replace-mode" type="checkbox" checked />
+              Thay thế danh sách yêu cầu hiện tại
+            </label>
+            <button id="btn-run-gsheets" class="btn btn-primary" type="button">Kết nối Google Sheets &amp; Phân tích</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: QUICK SINGLE REQUEST -->
+      <div id="tab-quick" class="tab-panel">
+        <div class="quick-form-grid">
+          <div class="quick-presets">
+            <span>Điền nhanh tình huống thử:</span>
+            <button class="chip-btn" type="button" data-preset="complete">Mẫu: Đa sản phẩm + Vượt CK 10% + Khả thi</button>
+            <button class="chip-btn" type="button" data-preset="risky">Mẫu: Thiếu tồn + Trễ hạn + Thiếu người duyệt</button>
+          </div>
+          <div class="form-row-3">
+            <div>
+              <label class="field-label">Tên khách hàng / Doanh nghiệp</label>
+              <input id="quick-customer" class="input" type="text" placeholder="VD: Công ty CP Công nghệ Tân Tiến" />
+            </div>
+            <div>
+              <label class="field-label">Kênh tiếp nhận</label>
+              <select id="quick-channel" class="input">
+                <option value="Email">Email</option>
+                <option value="Biểu mẫu Web">Biểu mẫu Web</option>
+                <option value="Hotline / Zalo">Hotline / Zalo</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Người phê duyệt (nếu tách riêng)</label>
+              <input id="quick-approver" class="input" type="text" placeholder="VD: Anh Hưng - Giám đốc IT" />
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Nội dung yêu cầu khách hàng dạng văn bản *</label>
+            <textarea id="quick-text" class="input textarea" rows="4" placeholder="Nhập nội dung email hoặc biểu mẫu của khách hàng (sản phẩm, số lượng, ngân sách, thời hạn, chiết khấu...)"></textarea>
+          </div>
+          <div class="quick-submit-row">
+            <button id="btn-run-quick" class="btn btn-primary" type="button">Chạy AI Agent xử lý yêu cầu này</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: KNOWLEDGE BASE VIEWER / EDITOR -->
+      <div id="tab-kb" class="tab-panel">
+        <div class="kb-toolbar">
+          <p class="section-desc">
+            Dữ liệu nền đang dùng để thẩm định giá, tồn kho, thời gian triển khai và phân bổ 6 NVKD. Có thể cập nhật bằng cách tải CSV/XLSX/Google Sheet hoặc chỉnh trực tiếp tồn kho &amp; giá bên dưới.
+          </p>
+          <button id="btn-save-kb" class="btn btn-primary btn-sm" type="button">Lưu thay đổi &amp; Tính toán lại</button>
+        </div>
+        <div class="kb-subtabs">
+          <button class="kb-sub-btn active" data-kb="kb-catalog" type="button">Sản phẩm, Giá &amp; Tồn kho</button>
+          <button class="kb-sub-btn" data-kb="kb-policy" type="button">Chính sách Chiết khấu &amp; Duyệt</button>
+          <button class="kb-sub-btn" data-kb="kb-team" type="button">Đội ngũ 6 NVKD</button>
+        </div>
+        <div id="kb-catalog" class="kb-panel active"></div>
+        <div id="kb-policy" class="kb-panel"></div>
+        <div id="kb-team" class="kb-panel"></div>
+      </div>
+
+      <div id="import-report-banner" class="import-report hidden"></div>
+    </section>
+
+    <!-- SECTION 2: KPI & WORKFLOW VISUALIZER -->
+    <section class="dashboard-grid">
+      <!-- KPI Summary -->
+      <div class="card kpi-card">
+        <div class="section-header compact">
+          <h2>2. Chỉ số Điều hành &amp; Kiểm soát Rủi ro (Ban Giám đốc)</h2>
+        </div>
+        <div id="kpi-cards" class="kpi-cards"></div>
+        <div class="team-load-section">
+          <h3>Phân bổ tải xử lý cho 6 Nhân viên Kinh doanh (~180 yêu cầu/tuần)</h3>
+          <div id="team-load-bars" class="team-load-bars"></div>
+        </div>
+      </div>
+
+      <!-- Flowchart Matching User Image -->
+      <div class="card workflow-card">
+        <div class="section-header compact">
+          <div>
+            <h2>3. Luồng Quy trình Xử lý Cơ hội B2B — Minh An Company</h2>
+            <p class="section-desc">Nhấp vào từng bước trên sơ đồ để lọc danh sách hồ sơ theo trạng thái.</p>
+          </div>
+          <button id="btn-clear-stage-filter" class="btn btn-secondary btn-sm hidden" type="button">Hiện tất cả bước</button>
+        </div>
+        <div id="workflow-diagram" class="workflow-diagram"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: RESULTS LIST + DETAILED AI INSPECTOR -->
+    <section class="results-workspace">
+      <!-- Left: Opportunity Queue -->
+      <div class="card queue-panel">
+        <div class="section-header compact">
+          <h2>4. Danh sách Hồ sơ &amp; Kết quả Phân tích</h2>
+          <span id="filtered-count-badge" class="badge badge-blue">0 hồ sơ</span>
+        </div>
+        <div class="filter-bar">
+          <input id="search-input" class="input" type="search" placeholder="Tìm khách hàng, mã hồ sơ, sản phẩm..." />
+          <select id="filter-stage" class="input">
+            <option value="ALL">Tất cả trạng thái quy trình</option>
+            <option value="KET_THUC_THEO_DOI">Sẵn sàng / Đã duyệt &amp; Theo dõi</option>
+            <option value="TRUONG_PHONG_DUYET">Chờ Trưởng phòng duyệt</option>
+            <option value="YEU_CAU_BO_SUNG">Yêu cầu KH làm rõ / bổ sung</option>
+            <option value="RISK_ONLY">Chỉ hiện hồ sơ có cảnh báo rủi ro</option>
+          </select>
+        </div>
+        <div id="opportunity-list" class="opportunity-list"></div>
+      </div>
+
+      <!-- Right: Detailed Inspector -->
+      <div class="card detail-panel">
+        <div id="opportunity-detail" class="opportunity-detail">
+          <p class="muted-empty">Chọn một hồ sơ ở danh sách bên trái để xem kết quả phân tích chi tiết, bảng thẩm định tồn kho &amp; giá, đề xuất kinh doanh và bản nháp phản hồi khách hàng.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Optional LLM Config Modal -->
+  <div id="llm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="llm-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content card">
+      <div class="modal-header">
+        <h3 id="llm-modal-title">Cấu hình LLM Tuỳ chọn (Gemini / OpenAI)</h3>
+        <button id="btn-close-llm" class="icon-btn" type="button" aria-label="Đóng">✕</button>
+      </div>
+      <p class="section-desc">
+        Hệ thống đã tích hợp sẵn bộ AI phân tích &amp; kiểm tra quy tắc nội bộ chạy ngay không cần API Key.
+        Nếu muốn dùng LLM để trau chuốt lại câu chữ bản nháp email khách hàng, bạn có thể nhập API Key bên dưới (chỉ lưu trên trình duyệt của bạn).
+      </p>
+      <div class="modal-form">
+        <div>
+          <label class="field-label">Nhà cung cấp</label>
+          <select id="llm-provider" class="input">
+            <option value="gemini">Google Gemini API</option>
+            <option value="openai">OpenAI / Tương thích OpenAI</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Model</label>
+          <input id="llm-model" class="input" type="text" placeholder="gemini-2.5-flash hoặc gpt-4o-mini" value="gemini-2.5-flash" />
+        </div>
+        <div>
+          <label class="field-label">API Key</label>
+          <input id="llm-api-key" class="input" type="password" placeholder="Dán API key..." />
+        </div>
+        <div id="llm-baseurl-wrap" class="hidden">
+          <label class="field-label">Base URL (nếu dùng OpenAI-compatible)</label>
+          <input id="llm-base-url" class="input" type="url" placeholder="https://api.openai.com/v1" />
+        </div>
+        <div id="llm-test-status" class="llm-test-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-test-llm" class="btn btn-secondary" type="button">Kiểm tra kết nối</button>
+        <button id="btn-save-llm" class="btn btn-primary" type="button">Lưu cấu hình</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+
